@@ -1,13 +1,18 @@
-export async function autoAuth(fingerprint) {
+export async function autoAuth(fingerprint, accountFingerprint) {
   try {
-    const res = await fetch("http://localhost:3001/api/autoauth", {  // ✅ absolute path
+    console.log("Sending fingerprint to server:", fingerprint);
+    
+
+    const res = await fetch("http://localhost:3001/api/autoauth", {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fingerprint }),
+      body: JSON.stringify({ fingerprint,accountFingerprint }),
     });
 
     const text = await res.text();
+    console.log("Server response:", text);
+    
     try {
       return JSON.parse(text);
     } catch {

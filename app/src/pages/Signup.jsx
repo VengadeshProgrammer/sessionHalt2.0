@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react'
 import { Link } from 'react-router-dom';
 import { sha256Hash } from '../sha256';
-// import { getFingerprintString } from '../Fingerprint/fingerprint';
-import { getFingerprintString } from "sessionhalt"
+// import {getFingerprint} from "../Fingerprint/fingerprint";
+import { getFingerprint} from "sessionhalt"
 import { autoAuth } from '../autoAuth';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
@@ -14,21 +14,25 @@ const Signup = () => {
   const [username, setUsername] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
-  const [hashedFingerprint, setHashedFingerprint] = React.useState(null);
   const [Loaded, setLoaded] = useState(false);
+  const fingerprint = getFingerprint();
 useEffect(() => {
   sanitizeURL();
   (async () => {
     try {
-      const fingerprint = await sha256Hash(await getFingerprintString());
-      setHashedFingerprint(fingerprint);
-      console.log("Fingerprint:", fingerprint);
+      // Get the accountFingerprints first.
+      let accountFingerprints = await fetch("http://localhost:3001/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  });
+  accountFingerprints = await accountFingerprints.json();
+   // ------------
+      console.log("Downsampled WebGL Fingerprint Length:", fingerprint.length);
+      const res = await autoAuth(fingerprint, accountFingerprints.fingerprints);
 
-      const res = await autoAuth(fingerprint);
-      console.log(res);
-
-      if (res?.redirectTo) {
-        navigate(res.redirectTo);
+      if (!res.error && res.mlResult.result==="Legitimate Change") {
+        navigate("/home");
       } else if (res?.error) {
         console.warn("AutoAuth error:", res.error);
         setLoaded(true);
@@ -50,7 +54,7 @@ useEffect(() => {
   else {
   setLoaded(false);
   let passwordHash = await sha256Hash(password);
-  console.log(hashedFingerprint);
+  const fingerprint = getFingerprint();
   
   const res = await fetch("http://localhost:3001/api/signup", {
     method: "POST",
@@ -60,7 +64,7 @@ useEffect(() => {
       email,
       username,
       password: passwordHash,
-      fingerprint: hashedFingerprint,
+      fingerprint,
     }),
   });
   

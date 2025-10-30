@@ -1,7 +1,7 @@
 import React, {useEffect, useState} from 'react'
 import { Link } from 'react-router-dom';
-// import { getFingerprintString } from '../Fingerprint/fingerprint';
-import { getFingerprintString } from "sessionhalt"
+// import {getFingerprint} from "../Fingerprint/fingerprint";
+import { getFingerprint} from "sessionhalt"
 import { autoAuth } from '../autoAuth';
 import { sha256Hash } from '../sha256';
 import { useNavigate } from 'react-router-dom';
@@ -12,20 +12,29 @@ const Login = () => {
   const navigate = useNavigate();
     const [email, setEmail] = React.useState('');
     const [password, setPassword] = React.useState('');
-    const [hashedFingerprint, setHashedFingerprint] = useState(null);
     const [Loaded, setLoaded] = useState(false);
+    const fingerprint = getFingerprint();
     useEffect(() => {
       sanitizeURL();
   (async () => {
-    let fingerprint = null;
     try {
-      fingerprint = await sha256Hash(await getFingerprintString());
-      setHashedFingerprint(fingerprint);
-
-      const res = await autoAuth(fingerprint);
-      if (res?.redirectTo) {
-        navigate(res.redirectTo);
+      // Todo: call autoAuth function with accountFingerprints 
+      // Get the accountFingerprints first.
+      let accountFingerprints = await fetch("http://localhost:3001/api/login", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    credentials: "include",
+  });
+  accountFingerprints = await accountFingerprints.json();
+      // ------------
+      const res = await autoAuth(fingerprint, accountFingerprints.fingerprints);
+      console.log("res is", res);
+      if (!res.error && res.mlResult.result==="Legitimate Change") {
+        navigate("/home");
         return;
+      }
+      else if(!res.error && res.mlResult.result==="SessionStealer") {
+        alert("Prediction : SessionStealer");
       }
       if (res?.error) {
         console.warn("AutoAuth error:", res.error);
@@ -47,7 +56,7 @@ const Login = () => {
       }
       else{
       setLoaded(false);
-      if(!hashedFingerprint) {
+      if(!fingerprint) {
         alert("Fingerprint not ready, please wait and try again.");
         setLoaded(true);
         return;
@@ -62,7 +71,8 @@ const Login = () => {
     body: JSON.stringify({
       email,
       password: passwordHash,
-      fingerprint: hashedFingerprint,
+      fingerprint: fingerprint,
+      buttonClicked: true,
     }),
   });
   const data = await res.json();

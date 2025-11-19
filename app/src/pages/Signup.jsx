@@ -2,8 +2,7 @@ import React, { useEffect } from 'react'
 import { Link } from 'react-router-dom';
 import { sha256Hash } from '../sha256';
 // import {getFingerprint} from "../Fingerprint/fingerprint";
-import { getFingerprint} from "sessionhalt"
-import { autoAuth } from '../autoAuth';
+import { getCanvasNumericData} from "sessionhalt"
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import Spinner from '../components/Spinner';
@@ -15,34 +14,45 @@ const Signup = () => {
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [Loaded, setLoaded] = useState(false);
-  const fingerprint = getFingerprint();
+  const fingerprint = getCanvasNumericData();
+  console.log(getCanvasNumericData().length);
 useEffect(() => {
   sanitizeURL();
+
   (async () => {
     try {
-      // Get the accountFingerprints first.
-      let accountFingerprints = await fetch("http://localhost:3001/api/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-  });
-  accountFingerprints = await accountFingerprints.json();
-   // ------------
-      console.log("Downsampled WebGL Fingerprint Length:", fingerprint.length);
-      const res = await autoAuth(fingerprint, accountFingerprints.fingerprints);
+      const res = await fetch("http://localhost:3001/api/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          fingerprint,
+          buttonClicked: false,
+        }),
+      });
 
-      if (!res.error && res.mlResult.result==="Legitimate Change") {
-        navigate("/home");
-      } else if (res?.error) {
-        console.warn("AutoAuth error:", res.error);
+      const data = await res.json();
+      console.log("AUTO-AUTH RESPONSE:", data);
+
+      // ❌ No cookie / session invalid
+      if (data.error) {
         setLoaded(true);
+        return;
       }
+
+      // 🔥 NEW: Direct match with backend auto-login response
+      if (data.autoLogin === true && data.redirectTo) {
+        navigate(data.redirectTo);
+        return;
+      }
+
     } catch (err) {
       console.error("AutoAuth failed:", err);
+    } finally {
       setLoaded(true);
     }
   })();
-}, [navigate]);
+}, [navigate, fingerprint]);
 
 
   async function handleOnSignup(e) {
@@ -53,8 +63,8 @@ useEffect(() => {
   }
   else {
   setLoaded(false);
+
   let passwordHash = await sha256Hash(password);
-  const fingerprint = getFingerprint();
   
   const res = await fetch("http://localhost:3001/api/signup", {
     method: "POST",

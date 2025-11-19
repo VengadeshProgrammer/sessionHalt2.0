@@ -1,54 +1,63 @@
-import React, {useEffect, useState} from "react";
-import firstPost from "../assets/firstPost.png"
-import secondPost from "../assets/secondPost.png"
+import React, { useEffect, useState } from "react";
+import firstPost from "../assets/firstPost.png";
+import secondPost from "../assets/secondPost.png";
 import Spinner from "../components/Spinner";
-// import {getFingerprint} from "../Fingerprint/fingerprint";
-import { getFingerprint} from "sessionhalt"
-import { autoAuth } from "../autoAuth";
+import { getCanvasNumericData } from "sessionhalt";
 import { useNavigate } from "react-router-dom";
-import { sha256Hash } from "../sha256";
+
 export default function SocialFeed() {
   const navigate = useNavigate();
-  // Example static data
+
+  // Example static posts
   const posts = [
     { id: 1, title: "Design", img: firstPost },
-    { id: 2, title: "3d Model", img: secondPost },
+    { id: 2, title: "3D Model", img: secondPost },
   ];
-  const fingerprint = getFingerprint();
-  const [Loaded, setLoaded] = useState(false);
+
+  const fingerprint = getCanvasNumericData();
+  const [loaded, setLoaded] = useState(false);
+
+  // ---------------------------------------------------------
+  // AUTO LOGIN CHECK USING FINGERPRINT ONLY
+  // ---------------------------------------------------------
   useEffect(() => {
-(async () => {
+  (async () => {
     try {
-      // Get the accountFingerprints first.
-      let accountFingerprints = await fetch("http://localhost:3001/api/login", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
-  });
-  accountFingerprints = await accountFingerprints.json();
-      // ------------
-      const res = await autoAuth(fingerprint, accountFingerprints.fingerprints);
-      console.log(res);
-       if(res.error || res.mlResult.result!=="Legitimate Change") {
-        console.log(res.error);
+      const res = await fetch("http://localhost:3001/api/verify-session", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fingerprint })
+      });
+
+      const data = await res.json();
+      console.log("VERIFY SESSION:", data);
+
+      if (!data.authenticated) {
         navigate("/login");
         return;
-       }
+      }
+
       setLoaded(true);
     } catch (err) {
-      console.error("AutoAuth failed:", err);
+      console.error("Verify failed:", err);
+      navigate("/login");
     }
   })();
-  }, []);
-  return (
-    Loaded ? 
+}, []);
+
+
+  // ---------------------------------------------------------
+  // UI
+  // ---------------------------------------------------------
+  return loaded ? (
     <div className="min-h-screen bg-gray-100 p-4 sm:p-6 lg:p-12">
       <h1 className="text-3xl sm:text-4xl font-bold mb-8 text-center text-gray-800">
         Social Feed
       </h1>
-      
+
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-        {posts.map(post => (
+        {posts.map((post) => (
           <div
             key={post.id}
             className="bg-white rounded-xl shadow-md overflow-hidden hover:shadow-lg transition-shadow"
@@ -59,12 +68,17 @@ export default function SocialFeed() {
               className="w-full h-48 object-cover"
             />
             <div className="p-4">
-              <h2 className="text-lg font-semibold text-gray-800">{post.title}</h2>
+              <h2 className="text-lg font-semibold text-gray-800">
+                {post.title}
+              </h2>
             </div>
           </div>
         ))}
       </div>
     </div>
-    : <div className="w-screen h-screen flex justify-center items-center"><Spinner size="w-16 h-16" color="border-indigo-500" spinning={true} /></div>
+  ) : (
+    <div className="w-screen h-screen flex justify-center items-center">
+      <Spinner size="w-16 h-16" color="border-indigo-500" spinning={true} />
+    </div>
   );
 }
